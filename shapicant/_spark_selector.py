@@ -286,7 +286,7 @@ class SparkSelector(BaseSelector):
     def _set_additivity_false(explainer_params: Optional[Dict[str, object]]):
         explainer_params = explainer_params or {}
         check_additivity = explainer_params.get("check_additivity", None)
-        if check_additivity is True:
+        if check_additivity:
             logger.warning("check_additivity is not supported for Spark estimators.")
         explainer_params["check_additivity"] = False
         return explainer_params
