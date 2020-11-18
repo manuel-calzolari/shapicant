@@ -1,11 +1,14 @@
+import re
 from io import open
 from os import path
 
 from setuptools import find_packages, setup
 
-import shapicant
-
 here = path.abspath(path.dirname(__file__))
+
+# Get the version
+with open("shapicant/__init__.py", encoding="utf8") as f:
+    version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)
 
 # Get the long description from the README file
 with open(path.join(here, "README.rst"), encoding="utf-8") as f:
@@ -13,7 +16,7 @@ with open(path.join(here, "README.rst"), encoding="utf-8") as f:
 
 setup(
     name="shapicant",
-    version=shapicant.__version__,
+    version=version,
     description="Feature selection package based on SHAP and target permutation, for pandas and Spark",
     long_description=long_description,
     long_description_content_type="text/x-rst",
