@@ -7,7 +7,7 @@ from setuptools import find_packages, setup
 here = path.abspath(path.dirname(__file__))
 
 # Get the version
-with open("shapicant/__init__.py", encoding="utf8") as f:
+with open(path.join(here, "shapicant", "__init__.py"), encoding="utf8") as f:
     version = re.search(r'__version__ = "(.*?)"', f.read()).group(1)
 
 # Get the long description from the README file
