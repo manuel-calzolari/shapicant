@@ -3,6 +3,8 @@ Class for the Pandas selector.
 
 """
 
+import logging
+import warnings
 from typing import Dict, Optional, Type, Union
 
 import numpy as np
@@ -15,6 +17,8 @@ from sklearn.base import BaseEstimator
 from tqdm import tqdm
 
 from ._base import BaseSelector
+
+logger = logging.getLogger(__name__)
 
 
 class PandasSelector(BaseSelector):
@@ -92,6 +96,8 @@ class PandasSelector(BaseSelector):
         null_neg_shap_values = [None] * self._n_outputs
         for i in tqdm(range(self.n_iter), disable=not self.verbose):
             self._current_iter = i + 1
+            if self.verbose:
+                logger.info(f"Iteration {self._current_iter}/{self.n_iter}")
             pos_shap_values, neg_shap_values = self._get_shap_values(
                 X,
                 y,
@@ -141,7 +147,7 @@ class PandasSelector(BaseSelector):
         # Select features with a p-value <= alpha
         selected = self.p_values_.index[self.p_values_ <= alpha]
         if len(selected) == 0:
-            print("No features were selected: either the data is too noisy or alpha too low.")
+            warnings.warn("No features were selected: either the data is too noisy or alpha too low.")
 
         return X[selected]
 

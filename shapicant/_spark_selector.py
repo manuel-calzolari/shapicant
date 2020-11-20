@@ -4,6 +4,7 @@ Class for the Spark selector.
 """
 
 import logging
+import warnings
 from typing import Dict, List, Optional, Type, Union
 
 import numpy as np
@@ -15,6 +16,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
 from shap import Explainer
+from tqdm import tqdm
 
 from ._base import BaseSelector
 
@@ -93,7 +95,7 @@ class SparkSelector(BaseSelector):
 
         # Get the true shap values (i.e. without shuffling)
         if self.verbose:
-            logger.warning("Computing true SHAP values...")
+            tqdm.write("Computing true SHAP values...")
         true_pos_shap_values, true_neg_shap_values = self._get_shap_values(
             sdf,
             label_col=label_col,
@@ -106,13 +108,13 @@ class SparkSelector(BaseSelector):
 
         # Get the null shap values (i.e. with shuffling)
         if self.verbose:
-            logger.warning("Computing null SHAP values...")
+            tqdm.write("Computing null SHAP values...")
         null_pos_shap_values = [None] * self._n_outputs
         null_neg_shap_values = [None] * self._n_outputs
-        for i in range(self.n_iter):
+        for i in tqdm(range(self.n_iter), disable=not self.verbose):
             self._current_iter = i + 1
             if self.verbose:
-                logger.warning(f"Iteration {self._current_iter}/{self.n_iter}")
+                logger.info(f"Iteration {self._current_iter}/{self.n_iter}")
             pos_shap_values, neg_shap_values = self._get_shap_values(
                 sdf,
                 label_col=label_col,
@@ -164,7 +166,7 @@ class SparkSelector(BaseSelector):
         # Select features with a p-value <= alpha
         selected = self.p_values_.index[self.p_values_ <= alpha]
         if len(selected) == 0:
-            logger.warning("No features were selected: either the data is too noisy or alpha too low.")
+            warnings.warn("No features were selected: either the data is too noisy or alpha too low.")
 
         return sdf.select(selected.tolist() + [label_col])
 
@@ -287,7 +289,7 @@ class SparkSelector(BaseSelector):
         explainer_params = explainer_params or {}
         check_additivity = explainer_params.get("check_additivity", None)
         if check_additivity:
-            logger.warning("check_additivity is not supported for Spark estimators.")
+            warnings.warn("check_additivity is not supported for Spark estimators.")
         explainer_params["check_additivity"] = False
         return explainer_params
 
