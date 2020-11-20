@@ -280,7 +280,10 @@ class SparkSelector(BaseSelector):
             self._X_with_index = self._attach_index(X).cache()
 
         # Join back the features and the shuffled target
-        sdf_shuffled = self._X_with_index.join(y_shuffled_with_index, on=SPARK_INDEX_NAME).drop(SPARK_INDEX_NAME)
+        # Broadcast the target to improve performance
+        sdf_shuffled = self._X_with_index.join(F.broadcast(y_shuffled_with_index), on=SPARK_INDEX_NAME).drop(
+            SPARK_INDEX_NAME
+        )
 
         return sdf_shuffled
 
