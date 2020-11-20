@@ -65,13 +65,34 @@ class BaseSelector(metaclass=ABCMeta):
 
         """
 
-    def _check_is_fitted(self):
+    def get_features(self, alpha: float = 0.05) -> List[object]:
+        """Get a list of the features selected.
+
+        Args:
+            alpha: Level at which the empirical p-values will get rejected.
+
+        Returns:
+            The list of features with a p-value <= alpha.
+
+        """
+
+        # Check if 'fit' has been called before using this method
+        self._check_is_fitted()
+
+        # Select features with a p-value <= alpha
+        selected_features = self.p_values_.index[self.p_values_ <= alpha].tolist()
+        if len(selected_features) == 0:
+            print("No features were selected: either the data is too noisy or alpha too low.")
+
+        return selected_features
+
+    def _check_is_fitted(self) -> None:
         if self.p_values_ is None:
             raise AttributeError(
                 "This instance is not fitted yet. Call 'fit' with appropriate arguments before using this method."
             )
 
-    def _validate_params(self):
+    def _validate_params(self) -> None:
         if self.n_iter < 10:
             raise ValueError("n_iter must be greater than or equal to 10.")
 

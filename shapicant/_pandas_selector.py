@@ -4,7 +4,6 @@ Class for the Pandas selector.
 """
 
 import logging
-import warnings
 from typing import Dict, Optional, Type, Union
 
 import numpy as np
@@ -141,15 +140,8 @@ class PandasSelector(BaseSelector):
 
         """
 
-        # Check if 'fit' has been called before using this method
-        self._check_is_fitted()
-
-        # Select features with a p-value <= alpha
-        selected = self.p_values_.index[self.p_values_ <= alpha]
-        if len(selected) == 0:
-            warnings.warn("No features were selected: either the data is too noisy or alpha too low.")
-
-        return X[selected]
+        selected_features = self.get_features(alpha=alpha)
+        return X[selected_features]
 
     def fit_transform(
         self,

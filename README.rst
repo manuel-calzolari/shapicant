@@ -121,6 +121,9 @@ We will use :code:`PandasSelector` with a LightGBM classifier in Random Forest m
     X_train_selected = selector.transform(X_train, alpha=0.05)
     X_val_selected = selector.transform(X_val, alpha=0.05)
 
+    # Just get the features list
+    selected_features = selector.get_features(alpha=0.05)
+
     # We can also get the p-values as pandas Series
     p_values = selector.p_values_
 
@@ -195,6 +198,9 @@ We will use :code:`SparkSelector` with a Random Forest classifier and SHAP's Tre
     # Get the DataFrame with the selected features (with a p-value <= 0.10)
     sdf_train_selected = selector.transform(sdf_train, label_col="label", alpha=0.10)
     sdf_val_selected = selector.transform(sdf_val, label_col="label", alpha=0.10)
+
+    # Just get the features list
+    selected_features = selector.get_features(alpha=0.10)
 
     # We can also get the p-values as pandas Series
     p_values = selector.p_values_

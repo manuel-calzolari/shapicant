@@ -160,15 +160,8 @@ class SparkSelector(BaseSelector):
 
         """
 
-        # Check if 'fit' has been called before using this method
-        self._check_is_fitted()
-
-        # Select features with a p-value <= alpha
-        selected = self.p_values_.index[self.p_values_ <= alpha]
-        if len(selected) == 0:
-            warnings.warn("No features were selected: either the data is too noisy or alpha too low.")
-
-        return sdf.select(selected.tolist() + [label_col])
+        selected_features = self.get_features(alpha=alpha)
+        return sdf.select(selected_features + [label_col])
 
     def fit_transform(
         self,
