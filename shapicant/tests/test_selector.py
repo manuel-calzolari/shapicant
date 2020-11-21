@@ -44,4 +44,4 @@ def test_spark_selector(data):
     selector = SparkSelector(model, explainer_type, n_iter=10, random_state=42)
     selector.fit(sdf, label_col="label")
     sdf_selected = selector.transform(sdf, label_col="label", alpha=0.10)
-    assert sdf_selected.columns == [0, 1, 2, 3, 4, "label"]
+    assert sdf_selected.columns == ["0", "1", "2", "3", "4", "label"]
