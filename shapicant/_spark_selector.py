@@ -3,6 +3,7 @@ Class for the Spark selector.
 
 """
 
+import importlib
 import logging
 import warnings
 from typing import Dict, List, Optional, Type, Union
@@ -10,13 +11,19 @@ from typing import Dict, List, Optional, Type, Union
 import numpy as np
 import pandas as pd
 from numpy.random import RandomState
-from pyspark.ml.feature import VectorAssembler
-from pyspark.ml.wrapper import JavaEstimator
-from pyspark.sql import Column, DataFrame
-from pyspark.sql import functions as F
-from pyspark.sql import types as T
 from shap import Explainer
 from tqdm import tqdm
+
+try:
+    from pyspark.ml.feature import VectorAssembler
+    from pyspark.ml.wrapper import JavaEstimator
+    from pyspark.sql import Column, DataFrame
+    from pyspark.sql import functions as F
+    from pyspark.sql import types as T
+except ImportError:
+    JavaEstimator = None
+    Column = None
+    DataFrame = None
 
 from ._base import BaseSelector
 
@@ -77,6 +84,10 @@ class SparkSelector(BaseSelector):
             explainer_params: Additional parameters for the explainer's shap_values method.
 
         """
+
+        # Check if pyspark and pyarrow are installed
+        if JavaEstimator is None or importlib.util.find_spec("pyarrow") is None:
+            raise ImportError("SparkSelector requires both pyspark and pyarrow.")
 
         # Validate parameters
         self._validate_params()
