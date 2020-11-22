@@ -44,11 +44,17 @@ For Spark, we also need:
 User installation
 ^^^^^^^^^^^^^^^^^
 
-The easiest way to install shapicant is using :code:`pip`:
+The easiest way to install shapicant is using :code:`pip`
 
 .. code:: bash
 
     pip install shapicant
+
+or :code:`conda`
+
+.. code:: bash
+
+    conda install -c conda-forge shapicant
 
 --------
 Examples
