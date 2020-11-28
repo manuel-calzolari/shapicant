@@ -33,6 +33,7 @@ def test_pandas_selector(data):
     selector = PandasSelector(model, explainer_type, n_iter=50, random_state=42)
     selector.fit(X, y)
     X_selected = selector.transform(X, alpha=0.05)
+    assert selector.p_values_.between(0, 1).all()
     assert X_selected.columns.tolist() == [0, 1, 2, 3, 4]
 
 
@@ -44,4 +45,5 @@ def test_spark_selector(data):
     selector = SparkSelector(model, explainer_type, n_iter=10, random_state=42)
     selector.fit(sdf, label_col="label")
     sdf_selected = selector.transform(sdf, label_col="label", alpha=0.10)
+    assert selector.p_values_.between(0, 1).all()
     assert sdf_selected.columns == ["0", "1", "2", "3", "4", "label"]
