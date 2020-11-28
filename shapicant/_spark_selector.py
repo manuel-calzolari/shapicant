@@ -104,48 +104,49 @@ class SparkSelector(BaseSelector):
         assembler = VectorAssembler(inputCols=features, outputCol=SPARK_FEATURES_NAME)
         sdf = assembler.transform(sdf)
 
-        # Get the true shap values (i.e. without shuffling)
-        if self.verbose:
-            tqdm.write("Computing true SHAP values...")
-        true_pos_shap_values, true_neg_shap_values = self._get_shap_values(
-            sdf,
-            label_col=label_col,
-            shuffle=False,
-            sdf_validation=sdf_validation,
-            estimator_params=estimator_params,
-            explainer_type_params=explainer_type_params,
-            explainer_params=explainer_params,
-        )
-
-        # Get the null shap values (i.e. with shuffling)
-        if self.verbose:
-            tqdm.write("Computing null SHAP values...")
-        null_pos_shap_values = [None] * self._n_outputs
-        null_neg_shap_values = [None] * self._n_outputs
-        for i in tqdm(range(self.n_iter), disable=not self.verbose):
-            self._current_iter = i + 1
-            if self.verbose:
-                logger.info(f"Iteration {self._current_iter}/{self.n_iter}")
-            pos_shap_values, neg_shap_values = self._get_shap_values(
+        # With the progress bar
+        with tqdm(total=self.n_iter, disable=not self.verbose) as pbar:
+            # Get the true shap values (i.e. without shuffling)
+            pbar.set_description("Computing true SHAP values")
+            true_pos_shap_values, true_neg_shap_values = self._get_shap_values(
                 sdf,
                 label_col=label_col,
-                shuffle=True,
+                shuffle=False,
                 sdf_validation=sdf_validation,
                 estimator_params=estimator_params,
                 explainer_type_params=explainer_type_params,
                 explainer_params=explainer_params,
             )
-            for j in range(self._n_outputs):
-                if i == 0:
-                    null_pos_shap_values[j] = pos_shap_values[j].to_frame()
-                    null_neg_shap_values[j] = neg_shap_values[j].to_frame()
-                else:
-                    null_pos_shap_values[j] = null_pos_shap_values[j].join(
-                        pos_shap_values[j], rsuffix=f"_{self._current_iter}"
-                    )
-                    null_neg_shap_values[j] = null_neg_shap_values[j].join(
-                        neg_shap_values[j], rsuffix=f"_{self._current_iter}"
-                    )
+
+            # Get the null shap values (i.e. with shuffling)
+            pbar.set_description("Computing null SHAP values")
+            null_pos_shap_values = [None] * self._n_outputs
+            null_neg_shap_values = [None] * self._n_outputs
+            for i in range(self.n_iter):
+                self._current_iter = i + 1
+                if self.verbose:
+                    logger.info(f"Iteration {self._current_iter}/{self.n_iter}")
+                pos_shap_values, neg_shap_values = self._get_shap_values(
+                    sdf,
+                    label_col=label_col,
+                    shuffle=True,
+                    sdf_validation=sdf_validation,
+                    estimator_params=estimator_params,
+                    explainer_type_params=explainer_type_params,
+                    explainer_params=explainer_params,
+                )
+                for j in range(self._n_outputs):
+                    if i == 0:
+                        null_pos_shap_values[j] = pos_shap_values[j].to_frame()
+                        null_neg_shap_values[j] = neg_shap_values[j].to_frame()
+                    else:
+                        null_pos_shap_values[j] = null_pos_shap_values[j].join(
+                            pos_shap_values[j], rsuffix=f"_{self._current_iter}"
+                        )
+                        null_neg_shap_values[j] = null_neg_shap_values[j].join(
+                            neg_shap_values[j], rsuffix=f"_{self._current_iter}"
+                        )
+                pbar.update(1)
 
         # Compute p-values
         self.p_values_ = self._compute_p_values(
