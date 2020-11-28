@@ -4,7 +4,7 @@ Class for the Pandas selector.
 """
 
 import logging
-from typing import Dict, Optional, Type, Union
+from typing import Callable, Dict, Optional, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ class PandasSelector(BaseSelector):
 
     def __init__(
         self,
-        estimator: BaseEstimator,
+        estimator: Union[BaseEstimator, Callable],
         explainer_type: Type[Explainer],
         n_iter: int = 100,
         verbose: Union[int, bool] = 1,
@@ -189,7 +189,8 @@ class PandasSelector(BaseSelector):
             y = y.sample(frac=1.0, random_state=sampling_seed)
 
         # Train the model
-        self.estimator.fit(X, y.values, **estimator_params or {})
+        fit = self.estimator.__self__.fit if callable(self.estimator) else self.estimator.fit
+        fit(X, y.values, **estimator_params or {})
 
         # Explain the model
         explainer = self.explainer_type(self.estimator, **explainer_type_params or {})
