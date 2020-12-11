@@ -72,6 +72,7 @@ class SparkSelector(BaseSelector):
         estimator_params: Optional[Dict[str, object]] = None,
         explainer_type_params: Optional[Dict[str, object]] = None,
         explainer_params: Optional[Dict[str, object]] = None,
+        broadcast: bool = True,
     ) -> "SparkSelector":
         """Fit the Spark selector with the provided estimator.
 
@@ -82,6 +83,7 @@ class SparkSelector(BaseSelector):
             estimator_params: Additional parameters for the underlying estimator's fit method.
             explainer_type_params: Additional parameters for the explainer's init.
             explainer_params: Additional parameters for the explainer's shap_values method.
+            broadcast: Whether to broadcast the target column when joining.
 
         """
 
@@ -134,6 +136,7 @@ class SparkSelector(BaseSelector):
                     estimator_params=estimator_params,
                     explainer_type_params=explainer_type_params,
                     explainer_params=explainer_params,
+                    broadcast=broadcast,
                 )
                 for j in range(self._n_outputs):
                     if i == 0:
@@ -183,6 +186,7 @@ class SparkSelector(BaseSelector):
         estimator_params: Optional[Dict[str, object]] = None,
         explainer_type_params: Optional[Dict[str, object]] = None,
         explainer_params: Optional[Dict[str, object]] = None,
+        broadcast: bool = True,
         alpha: float = 0.05,
     ):
         """Fit the Spark selector and reduce data to the selected features.
@@ -194,6 +198,7 @@ class SparkSelector(BaseSelector):
             estimator_params: Additional parameters for the underlying estimator's fit method.
             explainer_type_params: Additional parameters for the explainer's init.
             explainer_params: Additional parameters for the explainer's shap_values method.
+            broadcast: Whether to broadcast the target column when joining.
             alpha: Level at which the empirical p-values will get rejected.
 
         Returns:
@@ -201,7 +206,7 @@ class SparkSelector(BaseSelector):
 
         """
 
-        self.fit(sdf, label_col, sdf_validation, estimator_params, explainer_type_params, explainer_params)
+        self.fit(sdf, label_col, sdf_validation, estimator_params, explainer_type_params, explainer_params, broadcast)
         return self.transform(sdf, label_col, alpha)
 
     def _get_shap_values(
@@ -213,11 +218,12 @@ class SparkSelector(BaseSelector):
         estimator_params: Optional[Dict[str, object]] = None,
         explainer_type_params: Optional[Dict[str, object]] = None,
         explainer_params: Optional[Dict[str, object]] = None,
+        broadcast: bool = True,
     ):
         # Don't shuffle to get true shap values, shuffle to get null shap values
         if shuffle:
             shuffling_seed = self.random_state + self._current_iter if self.random_state is not None else None
-            sdf = self._shuffle(sdf, label_col=label_col, seed=shuffling_seed)
+            sdf = self._shuffle(sdf, label_col=label_col, broadcast=broadcast, seed=shuffling_seed)
 
         # Train the model
         model = self.estimator.fit(sdf, **estimator_params or {})
@@ -266,7 +272,13 @@ class SparkSelector(BaseSelector):
 
         return (pos_shap_values, neg_shap_values)
 
-    def _shuffle(self, sdf: DataFrame, label_col: str = "label", seed: Optional[int] = None) -> DataFrame:
+    def _shuffle(
+        self,
+        sdf: DataFrame,
+        label_col: str = "label",
+        broadcast: bool = True,
+        seed: Optional[int] = None,
+    ) -> DataFrame:
         # Take the target column
         y = sdf.select(label_col)
 
@@ -285,10 +297,9 @@ class SparkSelector(BaseSelector):
             self._X_with_index = self._attach_index(X).cache()
 
         # Join back the features and the shuffled target
-        # Broadcast the target to improve performance
-        sdf_shuffled = self._X_with_index.join(F.broadcast(y_shuffled_with_index), on=SPARK_INDEX_NAME).drop(
-            SPARK_INDEX_NAME
-        )
+        if broadcast:
+            y_shuffled_with_index = F.broadcast(y_shuffled_with_index)
+        sdf_shuffled = self._X_with_index.join(y_shuffled_with_index, on=SPARK_INDEX_NAME).drop(SPARK_INDEX_NAME)
 
         return sdf_shuffled
 
