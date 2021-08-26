@@ -45,7 +45,9 @@ class PandasSelector(BaseSelector):
             explainer_type=explainer_type,
             n_iter=n_iter,
             verbose=verbose,
-            random_state=random_state,
+            random_state=random_state.randint(np.iinfo(np.int32).max)
+            if isinstance(random_state, RandomState)
+            else random_state,
         )
         self._current_iter = None
 
