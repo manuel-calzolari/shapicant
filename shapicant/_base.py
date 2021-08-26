@@ -41,7 +41,6 @@ class BaseSelector(metaclass=ABCMeta):
         self.verbose = verbose
         self.random_state = random_state
         self.p_values_ = None
-        self._current_iter = None
         self._n_outputs = None
 
     @abstractmethod

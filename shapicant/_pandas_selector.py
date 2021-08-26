@@ -4,7 +4,7 @@ Class for the Pandas selector.
 """
 
 import logging
-from typing import Callable, Dict, Optional, Type, Union
+from typing import Callable, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -47,6 +47,7 @@ class PandasSelector(BaseSelector):
             verbose=verbose,
             random_state=random_state,
         )
+        self._current_iter = None
 
     def fit(
         self,
@@ -153,7 +154,7 @@ class PandasSelector(BaseSelector):
         explainer_type_params: Optional[Dict[str, object]] = None,
         explainer_params: Optional[Dict[str, object]] = None,
         alpha: float = 0.05,
-    ):
+    ) -> DataFrame:
         """Fit the Pandas selector and reduce data to the selected features.
 
         Args:
@@ -182,7 +183,7 @@ class PandasSelector(BaseSelector):
         estimator_params: Optional[Dict[str, object]] = None,
         explainer_type_params: Optional[Dict[str, object]] = None,
         explainer_params: Optional[Dict[str, object]] = None,
-    ):
+    ) -> Tuple[List[Series], List[Series]]:
         # Don't shuffle to get true shap values, shuffle to get null shap values
         if shuffle:
             sampling_seed = self.random_state + self._current_iter if self.random_state is not None else None

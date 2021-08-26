@@ -6,11 +6,12 @@ Class for the Spark selector.
 import importlib
 import logging
 import warnings
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import pandas as pd
 from numpy.random import RandomState
+from pandas import Series
 from shap import Explainer
 from tqdm import tqdm
 
@@ -62,6 +63,7 @@ class SparkSelector(BaseSelector):
             if isinstance(random_state, RandomState)
             else random_state,
         )
+        self._current_iter = None
         self._X_with_index = None  # Cache
 
     def fit(
@@ -88,7 +90,7 @@ class SparkSelector(BaseSelector):
         """
 
         # Check if pyspark and pyarrow are installed
-        if JavaEstimator is None or importlib.util.find_spec("pyarrow") is None:
+        if DataFrame is None or importlib.util.find_spec("pyarrow") is None:
             raise ImportError("SparkSelector requires both pyspark and pyarrow.")
 
         # Validate parameters
@@ -188,7 +190,7 @@ class SparkSelector(BaseSelector):
         explainer_params: Optional[Dict[str, object]] = None,
         broadcast: bool = True,
         alpha: float = 0.05,
-    ):
+    ) -> DataFrame:
         """Fit the Spark selector and reduce data to the selected features.
 
         Args:
@@ -219,7 +221,7 @@ class SparkSelector(BaseSelector):
         explainer_type_params: Optional[Dict[str, object]] = None,
         explainer_params: Optional[Dict[str, object]] = None,
         broadcast: bool = True,
-    ):
+    ) -> Tuple[List[Series], List[Series]]:
         # Don't shuffle to get true shap values, shuffle to get null shap values
         if shuffle:
             shuffling_seed = self.random_state + self._current_iter if self.random_state is not None else None
@@ -304,7 +306,7 @@ class SparkSelector(BaseSelector):
         return sdf_shuffled
 
     @staticmethod
-    def _set_additivity_false(explainer_params: Optional[Dict[str, object]]):
+    def _set_additivity_false(explainer_params: Optional[Dict[str, object]]) -> Dict[str, object]:
         explainer_params = explainer_params or {}
         check_additivity = explainer_params.get("check_additivity", None)
         if check_additivity:

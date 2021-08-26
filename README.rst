@@ -188,7 +188,7 @@ We will use :code:`SparkSelector` with a Random Forest classifier and SHAP's Tre
     model = RandomForestClassifier(
         featureSubsetStrategy="all",
         numTrees=20,
-        seed=42
+        seed=42,
     )
     
     # This is the class (not its instance) of SHAP's TreeExplainer
@@ -199,7 +199,7 @@ We will use :code:`SparkSelector` with a Random Forest classifier and SHAP's Tre
     
     # Run the feature selection
     # If we provide a validation set, SHAP values are computed on it, otherwise they are computed on the training set
-    selector.fit(sdf_train, label_col="label", sdf_validation=sdf_val)
+    selector.fit(sdf_train, label_col="label", sdf_validation=sdf_val, broadcast=True)
 
     # Get the DataFrame with the selected features (with a p-value <= 0.10)
     sdf_train_selected = selector.transform(sdf_train, label_col="label", alpha=0.10)
