@@ -16,7 +16,7 @@ Permuting the response vector instead of permuting features has some advantages:
 
 - The dependence between predictor variables remains unchanged.
 - The number of permutations can be much smaller than the number of predictor variables for high dimensional datasets (unlike PFI [BRE]_) and there is no need to add shadow features (unlike Boruta [KUR]_).
-- Since the features set does not change, in the Spark implementation there is no need to change the features vector at each iteration.
+- Since the features set does not change during iterations, the distributed implementation is more straightforward.
 
 ------------
 Installation
@@ -64,7 +64,7 @@ Examples
 PandasSelector
 ^^^^^^^^^^^^^^
 
-If our data fit into the memory of a single machine, :code:`PandasSelector` is the way to go. This selector works on Pandas DataFrames and supports estimators that have a sklearn-like API.
+If our data fit into the memory of a single machine, :code:`PandasSelector` is a sensible choice. This selector works on Pandas DataFrames and supports estimators that have a sklearn-like API.
 
 First we’ll need to import a bunch of useful packages and generate some data to work with.
 
@@ -111,13 +111,13 @@ We will use :code:`PandasSelector` with a LightGBM classifier in Random Forest m
         n_jobs=-1,
         random_state=42,
     )
-    
+
     # This is the class (not its instance) of SHAP's TreeExplainer
     explainer_type = shap.TreeExplainer
-    
+
     # Use PandasSelector with 100 iterations
     selector = PandasSelector(model, explainer_type, n_iter=100, random_state=42)
-    
+
     # Run the feature selection
     # If we provide a validation set, SHAP values are computed on it, otherwise they are computed on the training set
     # We can also provide additional parameters to the underlying estimator's fit method through estimator_params
@@ -141,7 +141,7 @@ If our data does not fit into the memory of a single machine, :code:`SparkSelect
 
 Please keep in mind the following caveats:
 
-- Spark adds a lot of overhead, so if our data fit into the memory of a single machine, :code:`PandasSelector` will be much faster.
+- Spark can add a lot of overhead, so if our data fit into the memory of a single machine, other selectors will be much faster.
 - SHAP does not support categorical features with Spark estimators (see https://github.com/slundberg/shap/pull/721).
 - Data provided to :code:`SparkSelector` is assumed to have already been preprocessed and each feature must correspond to a separate column. For example, if we want to one-hot encode a categorical feature, we must do so before providing the dataset to :code:`SparkSelector` and each binary variable must have its own column (Vector type columns are not supported).
 
@@ -190,13 +190,13 @@ We will use :code:`SparkSelector` with a Random Forest classifier and SHAP's Tre
         numTrees=20,
         seed=42,
     )
-    
+
     # This is the class (not its instance) of SHAP's TreeExplainer
     explainer_type = shap.TreeExplainer
-    
+
     # Use SparkSelector with 50 iterations
     selector = SparkSelector(model, explainer_type, n_iter=50, random_state=42)
-    
+
     # Run the feature selection
     # If we provide a validation set, SHAP values are computed on it, otherwise they are computed on the training set
     selector.fit(sdf_train, label_col="label", sdf_validation=sdf_val, broadcast=True)
@@ -207,6 +207,81 @@ We will use :code:`SparkSelector` with a Random Forest classifier and SHAP's Tre
 
     # Just get the features list
     selected_features = selector.get_features(alpha=0.10)
+
+    # We can also get the p-values as pandas Series
+    p_values = selector.p_values_
+
+^^^^^^^^^^^^^^^^
+SparkUdfSelector
+^^^^^^^^^^^^^^^^
+
+If we have a Spark cluster and our data fit into the memory of Spark executors, :code:`SparkUdfSelector` can be used to parallelize iterations. This selector works on Spark DataFrames and supports estimators that have a sklearn-like API.
+
+Let's generate some data to work with.
+
+.. code:: python
+
+    import pandas as pd
+    from sklearn.datasets import make_classification
+    from pyspark.sql import SparkSession
+
+    # Generate a random classification problem
+    X, y = make_classification(
+        n_samples=1000,
+        n_features=25,
+        n_informative=3,
+        n_redundant=2,
+        n_repeated=2,
+        n_classes=3,
+        n_clusters_per_class=1,
+        shuffle=False,
+        random_state=42,
+    )
+
+    # SparkSelector works with Spark DataFrames, so convert data to a DataFrame
+    # Note: in a real world setting, you probably load data from parquet files or other sources
+    spark = SparkSession.builder.getOrCreate()
+    sdf = spark.createDataFrame(pd.DataFrame(X).assign(label=y))
+
+    # Split training and validation sets (to keep the example simple, we don't split in a stratified fashion)
+    # Note: in a real world setting, you probably want a test set as well
+    sdf_train, sdf_val = sdf.randomSplit([0.80, 0.20], seed=42)
+
+We will use :code:`SparkUdfSelector` with a LightGBM classifier in Random Forest mode and SHAP's TreeExplainer.
+
+.. code:: python
+
+    from shapicant import SparkUdfSelector
+    import lightgbm as lgb
+    import shap
+
+    # LightGBM in RandomForest-like mode (with rows subsampling), without columns subsampling
+    model = lgb.LGBMClassifier(
+        boosting_type="rf",
+        subsample_freq=1,
+        subsample=0.632,
+        n_estimators=100,
+        n_jobs=2,
+        random_state=42,
+    )
+
+    # This is the class (not its instance) of SHAP's TreeExplainer
+    explainer_type = shap.TreeExplainer
+
+    # Use SparkUdfSelector with 100 iterations
+    selector = SparkUdfSelector(model, explainer_type, n_iter=100, random_state=42)
+
+    # Run the feature selection
+    # If we provide a validation set, SHAP values are computed on it, otherwise they are computed on the training set
+    # We can also provide additional parameters to the underlying estimator's fit method through estimator_params
+    selector.fit(sdf_train, label_col="label", sdf_validation=sdf_val, estimator_params={"categorical_feature": None})
+
+    # Get the DataFrame with the selected features (with a p-value <= 0.05)
+    sdf_train_selected = selector.transform(sdf_train, label_col="label", alpha=0.05)
+    sdf_val_selected = selector.transform(sdf_val, label_col="label", alpha=0.05)
+
+    # Just get the features list
+    selected_features = selector.get_features(alpha=0.05)
 
     # We can also get the p-values as pandas Series
     p_values = selector.p_values_

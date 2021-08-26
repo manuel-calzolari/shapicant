@@ -5,7 +5,7 @@ import shap
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.sql import SparkSession
 from sklearn.datasets import make_classification
-from shapicant import PandasSelector, SparkSelector
+from shapicant import PandasSelector, SparkSelector, SparkUdfSelector
 
 
 @pytest.fixture
@@ -45,5 +45,19 @@ def test_spark_selector(data):
     selector = SparkSelector(model, explainer_type, n_iter=10, random_state=42)
     selector.fit(sdf, label_col="label")
     sdf_selected = selector.transform(sdf, label_col="label", alpha=0.10)
+    assert selector.p_values_.between(0, 1).all()
+    assert sdf_selected.columns == ["0", "1", "2", "3", "4", "label"]
+
+
+def test_spark_udf_selector(data):
+    spark = SparkSession.builder.config("spark.sql.shuffle.partitions", "10").getOrCreate()
+    sdf = spark.createDataFrame(pd.DataFrame(data[0]).assign(label=data[1]))
+    model = lgb.LGBMClassifier(
+        boosting_type="rf", subsample_freq=1, subsample=0.632, n_estimators=100, n_jobs=2, random_state=42
+    )
+    explainer_type = shap.TreeExplainer
+    selector = SparkUdfSelector(model, explainer_type, n_iter=50, random_state=42)
+    selector.fit(sdf, label_col="label")
+    sdf_selected = selector.transform(sdf, label_col="label", alpha=0.05)
     assert selector.p_values_.between(0, 1).all()
     assert sdf_selected.columns == ["0", "1", "2", "3", "4", "label"]
