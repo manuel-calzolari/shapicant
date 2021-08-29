@@ -238,7 +238,7 @@ Let's generate some data to work with.
         random_state=42,
     )
 
-    # SparkSelector works with Spark DataFrames, so convert data to a DataFrame
+    # SparkUdfSelector works with Spark DataFrames, so convert data to a DataFrame
     # Note: in a real world setting, you probably load data from parquet files or other sources
     spark = SparkSession.builder.getOrCreate()
     sdf = spark.createDataFrame(pd.DataFrame(X).assign(label=y))
