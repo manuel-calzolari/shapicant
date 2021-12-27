@@ -39,6 +39,6 @@ setup(
     python_requires=">=3.6",
     install_requires=["shap>=0.36.0", "numpy", "pandas", "scikit-learn", "tqdm"],
     extras_require={
-        "spark": ["pyspark>=2.4", "pyarrow"],
+        "spark": ["pyspark>=3.0", "pyarrow"],
     },
 )

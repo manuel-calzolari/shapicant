@@ -209,17 +209,6 @@ class SparkUdfSelector(BaseSelector):
         explainer_params: Optional[Dict[str, object]] = None,
         random_state: Optional[int] = None,
     ) -> DataFrame:
-        # Build the Pandas UDF schema
-        schema = ", ".join(
-            [
-                f"`{col}` DOUBLE"
-                for col in sdf.columns
-                if col not in (label_col, SPARK_VALIDATION_NAME, SPARK_REPLICATION_NAME)
-            ]
-            + [f"`{SPARK_SIGN_NAME}` BYTE", f"`{SPARK_CLS_NAME}` INT", f"`{SPARK_REPLICATION_NAME}` LONG"]
-        )
-
-        @F.pandas_udf(schema, F.PandasUDFType.GROUPED_MAP)
         def predict_contrib_udf(pdf):
             # Get the current replica
             current_replica = pdf.pop(SPARK_REPLICATION_NAME).iloc[0]
@@ -272,4 +261,14 @@ class SparkUdfSelector(BaseSelector):
 
             return df_shap_values
 
-        return sdf.groupby(SPARK_REPLICATION_NAME).apply(predict_contrib_udf)
+        # Build the Pandas UDF schema
+        schema = ", ".join(
+            [
+                f"`{col}` DOUBLE"
+                for col in sdf.columns
+                if col not in (label_col, SPARK_VALIDATION_NAME, SPARK_REPLICATION_NAME)
+            ]
+            + [f"`{SPARK_SIGN_NAME}` BYTE", f"`{SPARK_CLS_NAME}` INT", f"`{SPARK_REPLICATION_NAME}` LONG"]
+        )
+
+        return sdf.groupby(SPARK_REPLICATION_NAME).applyInPandas(predict_contrib_udf, schema=schema)

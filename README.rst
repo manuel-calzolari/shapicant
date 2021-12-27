@@ -37,7 +37,7 @@ shapicant requires:
 
 For Spark, we also need:
 
-- pyspark (>= 2.4)
+- pyspark (>= 3.0)
 - pyarrow
 
 ^^^^^^^^^^^^^^^^^

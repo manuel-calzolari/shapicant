@@ -18,18 +18,17 @@ from tqdm import tqdm
 try:
     from pyspark.ml.feature import VectorAssembler
     from pyspark.ml.wrapper import JavaEstimator
-    from pyspark.sql import Column, DataFrame
+    from pyspark.sql import DataFrame
     from pyspark.sql import functions as F
-    from pyspark.sql import types as T
 except ImportError:
     JavaEstimator = None
-    Column = None
     DataFrame = None
 
 from ._base import BaseSelector
 
 SPARK_FEATURES_NAME = "__shapicant_features__"
 SPARK_INDEX_NAME = "__shapicant_index__"
+SPARK_CLS_NAME = "__shapicant_cls__"
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +64,7 @@ class SparkSelector(BaseSelector):
         )
         self._current_iter = None
         self._X_with_index = None  # Cache
+        self._X_for_shap = None  # Cache
 
     def fit(
         self,
@@ -161,6 +161,7 @@ class SparkSelector(BaseSelector):
         # Cleanup
         self._n_outputs = None
         self._X_with_index = None
+        self._X_for_shap = None
 
         return self
 
@@ -237,30 +238,29 @@ class SparkSelector(BaseSelector):
         if sdf_validation is not None:
             sdf = sdf_validation
 
-        # Compute shap values
+        # Select features for shap
+        # The features dataframe never changes, so we can compute it only the first time
         features = [col for col in sdf.columns if col not in (label_col, SPARK_FEATURES_NAME)]
-        sdf = sdf.select(
-            self._compute_shap_values(F.array(features), features, explainer, explainer_params).alias("shap_values")
-        )
+        if self._X_for_shap is None:
+            self._X_for_shap = sdf.select(features).cache()
+
+        # Compute shap values
+        sdf = self._compute_shap_values(self._X_for_shap, explainer, explainer_params)
         if self._n_outputs is None:
-            self._n_outputs = len(sdf.head()[0])
-        sdf = sdf.select(*[F.col("shap_values")[i].alias(f"{i}") for i in range(self._n_outputs)])
-        shap_values = [
-            sdf.select(*[sdf[f"{i}"][j].alias(feature) for j, feature in enumerate(features)])
-            for i in range(self._n_outputs)
-        ]
+            self._n_outputs = sdf.agg(F.countDistinct(SPARK_CLS_NAME)).head()[0]
+        shap_values = [sdf.filter(F.col(SPARK_CLS_NAME) == i).drop(SPARK_CLS_NAME) for i in range(self._n_outputs)]
 
         # Average positive and negative shap values for each class
         pos_shap_values = []
         neg_shap_values = []
         for cls_shap_values in shap_values:
-            sdf_pos = cls_shap_values.select(
+            sdf_pos = cls_shap_values.agg(
                 *[
                     F.mean(F.when(F.col(col_name) >= 0, F.col(col_name)).otherwise(0)).name(col_name)
                     for col_name in cls_shap_values.columns
                 ]
             )
-            sdf_neg = cls_shap_values.select(
+            sdf_neg = cls_shap_values.agg(
                 *[
                     F.mean(F.when(F.col(col_name) < 0, F.col(col_name)).otherwise(0)).name(col_name)
                     for col_name in cls_shap_values.columns
@@ -319,15 +319,20 @@ class SparkSelector(BaseSelector):
         return sdf.rdd.zipWithIndex().map(lambda p: (p[1],) + tuple(p[0])).toDF([SPARK_INDEX_NAME] + sdf.columns)
 
     @staticmethod
-    def _compute_shap_values(
-        cols: Column, column_names: List[str], explainer: Explainer, explainer_params: Dict[str, object]
-    ):
-        @F.pandas_udf(returnType=T.ArrayType(T.ArrayType(T.DoubleType())))
-        def predict_contrib_udf(cols):
-            X = pd.DataFrame(data=np.vstack(cols.tolist()), columns=column_names)
-            shap_values = explainer.shap_values(X, **explainer_params or {})
-            if not isinstance(shap_values, list):
-                shap_values = [shap_values]
-            return pd.Series(zip(*shap_values))
+    def _compute_shap_values(sdf: DataFrame, explainer: Explainer, explainer_params: Dict[str, object]):
+        def predict_contrib_udf(iterator):
+            for pdf in iterator:
+                shap_values = explainer.shap_values(pdf, **explainer_params or {})
+                if not isinstance(shap_values, list):
+                    shap_values = [shap_values]
+                df_shap_values = pd.DataFrame()
+                for i, cls_shap_values in enumerate(shap_values):
+                    df_cls_shap_values = pd.DataFrame(data=cls_shap_values, columns=pdf.columns)
+                    df_cls_shap_values[SPARK_CLS_NAME] = i
+                    df_shap_values = df_shap_values.append(df_cls_shap_values)
+                yield df_shap_values
 
-        return predict_contrib_udf(cols)
+        # Build the Pandas UDF schema
+        schema = ", ".join([f"`{col}` DOUBLE" for col in sdf.columns] + [f"`{SPARK_CLS_NAME}` INT"])
+
+        return sdf.mapInPandas(predict_contrib_udf, schema=schema)
