@@ -1,6 +1,8 @@
-=========
+.. -*- mode: rst -*-
+
+*********
 shapicant
-=========
+*********
 
 **shapicant** is a feature selection package based on `SHAP <https://github.com/slundberg/shap>`_ [LUN]_ and target permutation, for pandas and Spark.
 
@@ -18,13 +20,11 @@ Permuting the response vector instead of permuting features has some advantages:
 - The number of permutations can be much smaller than the number of predictor variables for high dimensional datasets (unlike PFI [BRE]_) and there is no need to add shadow features (unlike Boruta [KUR]_).
 - Since the features set does not change during iterations, the distributed implementation is more straightforward.
 
-------------
 Installation
-------------
+============
 
-^^^^^^^^^^^^
 Dependencies
-^^^^^^^^^^^^
+------------
 
 shapicant requires:
 
@@ -40,9 +40,8 @@ For Spark, we also need:
 - pyspark (>= 3.0)
 - pyarrow
 
-^^^^^^^^^^^^^^^^^
 User installation
-^^^^^^^^^^^^^^^^^
+-----------------
 
 The easiest way to install shapicant is using :code:`pip`
 
@@ -56,13 +55,11 @@ or :code:`conda`
 
     conda install -c conda-forge shapicant
 
---------
 Examples
---------
+========
 
-^^^^^^^^^^^^^^
 PandasSelector
-^^^^^^^^^^^^^^
+--------------
 
 If our data fit into the memory of a single machine, :code:`PandasSelector` is a sensible choice. This selector works on Pandas DataFrames and supports estimators that have a sklearn-like API.
 
@@ -133,16 +130,15 @@ We will use :code:`PandasSelector` with a LightGBM classifier in Random Forest m
     # We can also get the p-values as pandas Series
     p_values = selector.p_values_
 
-^^^^^^^^^^^^^^
 SparkSelector
-^^^^^^^^^^^^^^
+-------------
 
-If our data does not fit into the memory of a single machine, :code:`SparkSelector` can be an alternative. This selector works on Spark DataFrames and supports PySpark estimators.
+If our data does not fit into the memory of a single machine, :code:`SparkSelector` can be an alternative. This selector works on Spark DataFrames and supports Spark ML estimators.
 
 Please keep in mind the following caveats:
 
 - Spark can add a lot of overhead, so if our data fit into the memory of a single machine, other selectors will be much faster.
-- SHAP does not support categorical features with Spark estimators (see https://github.com/slundberg/shap/pull/721).
+- SHAP does not support categorical features with Spark ML estimators (see https://github.com/slundberg/shap/pull/721).
 - Data provided to :code:`SparkSelector` is assumed to have already been preprocessed and each feature must correspond to a separate column. For example, if we want to one-hot encode a categorical feature, we must do so before providing the dataset to :code:`SparkSelector` and each binary variable must have its own column (Vector type columns are not supported).
 
 Let's generate some data to work with.
@@ -211,9 +207,8 @@ We will use :code:`SparkSelector` with a Random Forest classifier and SHAP's Tre
     # We can also get the p-values as pandas Series
     p_values = selector.p_values_
 
-^^^^^^^^^^^^^^^^
 SparkUdfSelector
-^^^^^^^^^^^^^^^^
+----------------
 
 If we have a Spark cluster and our data fit into the memory of Spark executors, :code:`SparkUdfSelector` can be used to parallelize iterations. This selector works on Spark DataFrames and supports estimators that have a sklearn-like API.
 
@@ -286,9 +281,8 @@ We will use :code:`SparkUdfSelector` with a LightGBM classifier in Random Forest
     # We can also get the p-values as pandas Series
     p_values = selector.p_values_
 
-----------
 References
-----------
+==========
 
 .. [LUN] Lundberg, S., & Lee, S.I. (2017). A unified approach to interpreting model predictions. In *Advances in Neural Information Processing Systems* (pp. 4765–4774).
 .. [ALT] Altmann, A., Toloşi, L., Sander, O., & Lengauer, T. (2010). Permutation importance: a corrected feature importance measure *Bioinformatics, 26* (10), 1340-1347.
