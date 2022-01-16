@@ -3,3 +3,5 @@ numpy
 pandas
 scikit-learn
 tqdm
+pyspark>=3.0
+pyarrow
