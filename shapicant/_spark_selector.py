@@ -105,7 +105,7 @@ class SparkSelector(BaseSelector):
 
         # Assembly the features vector
         features = [col for col in sdf.columns if col != label_col]
-        assembler = VectorAssembler(inputCols=features, outputCol=SPARK_FEATURES_NAME)
+        assembler = VectorAssembler(inputCols=features, outputCol=SPARK_FEATURES_NAME, handleInvalid="keep")
         sdf = assembler.transform(sdf)
 
         # With the progress bar
